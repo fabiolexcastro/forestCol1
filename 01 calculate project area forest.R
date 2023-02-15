@@ -131,7 +131,8 @@ years <- parse_number(basename(proj))
 map(years, clipfunc)
 
 # Intersect with 2021 - forest cover --------------------------------------
-frst2021 <- terra::rast('../raster/input/ideam/col/cambio_2020_2021_220710_3116.img')
+frst2021 <- terra::rast('raster/input/ideam/col/cambio_2020_2021_220710_3116.img')
+proj <- poly
 
 purrr::map(.x = 1:length(proj), .f = function(i){
   
