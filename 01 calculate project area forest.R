@@ -130,8 +130,79 @@ clipfunc <- function(year){
 years <- parse_number(basename(proj))
 map(years, clipfunc)
 
+# Intersect with 2021 - forest cover --------------------------------------
+frst2021 <- terra::rast('../raster/input/ideam/col/cambio_2020_2021_220710_3116.img')
 
-
-
+purrr::map(.x = 1:length(proj), .f = function(i){
+  
+  print(i)
+  pol <- terra::vect(proj[i])
+  year <- parse_number(basename(proj[i]))
+  bff <- terra::vect(grep(year, bffr, value = T))
+  
+  # Project
+  pol <- terra::project(pol, terra::crs(frst2021))
+  bff <- terra::project(bff, terra::crs(frst2021))
+  
+  # Erase mask
+  bff <- terra::erase(bff, pol)
+  
+  # Calculating the area (hectares)
+  are <- terra::expanse(pol) / 10000
+  are <- round(are, 0)
+  pol$ha <- are
+  
+  purrr::map(.x = 1:nrow(pol), .f = function(j){
+    
+    ct <- pol[j,]
+    bf <- bff[j,]
+    nm <- ct$MERGE_SRC
+    
+    # Project area
+    fr <- terra::crop(frst2021, ct) %>% terra::mask(., ct)
+    
+    # Buffer area
+    frbf <- terra::crop(frst2021, bf) %>% terra::mask(., bf)
+    
+    # Pixel area
+    px <- res(fr)[1] * res(fr)[2] / 10000
+    
+    # Project area
+    # Calcultating the frequency (fr[]) of pixels for each category
+    fq <- as.data.frame(table(fr[])) %>% mutate(Var1 = as.numeric(as.character(Var1)))
+    # Pasting the name (lbls) in a table
+    fq <- mutate(fq, nombre = nm) %>% inner_join(., lbls, by = c('Var1' = 'value'))
+    colnames(fq) <- c('Value', 'nPixeles', 'Nombre', 'Categoria')
+    fq <- mutate(fq, year = year)
+    fq <- mutate(fq, area_project_ha = ct$ha, area_ha = nPixeles * px, area_ha = round(area_ha, 1))
+    
+    # Buffer area
+    bfar <- as.data.frame(table(frbf[])) %>% mutate(Var1 = as.numeric(as.character(Var1)))
+    bfar <- mutate(bfar, nombre = nm) %>% inner_join(., lbls, by = c('Var1' = 'value'))
+    colnames(bfar) <- c('Value', 'nPixelesBuffer', 'Nombre', 'Categoria')
+    fq <- full_join(fq, bfar, by = c('Value', 'Nombre', 'Categoria'))
+    fq <- mutate(fq, area_buffer_ha = nPixelesBuffer * px, area_buffer_ha = round(area_buffer_ha, 1))
+    fq <- relocate(fq, Nombre, Categoria, year, nPixeles, nPixelesBuffer, area_project_ha, area_ha, area_buffer_ha)
+    
+    # To write the results
+    dr <- glue('raster/output/ideam/{year}')
+    nm <- ct$MERGE_SRC
+    do <- glue('forest_{nm}_2021.tif')
+    do <- gsub('Projects', '', do)
+    do <- gsub('\\\\', '', do)
+    dir_create(dr)
+    
+    # Raster file
+    terra::writeRaster(x = fr, filename = glue('{dr}/{do}'), overwrite = T)
+    
+    # CSV file
+    dr <- glue('tables/ideam/{year}')
+    dir_create(dr)
+    do <- gsub('.tif', '.csv', do)
+    write.csv(fq, glue('{dr}/{do}'), row.names = F)
+    
+  })
+  
+})
 
 
