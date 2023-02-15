@@ -21,11 +21,10 @@ frst <- dir_ls('raster/input/ideam/col', regexp = '.img$') %>% as.character()
 lbls <- tibble(value = 1:5, categoria = c('Bosque estable', 'No bosque', 'Bosque nuevo', 'Sin información', 'No bosque estable'))
 
 # Function ----------------------------------------------------------------
-
 clipfunc <- function(year){
   
   # Proof 
-  # year <- 2010
+  # year <- 2021
   
   print(year)
   yea <- paste0('-', year, '_')
@@ -127,7 +126,7 @@ clipfunc <- function(year){
 }
 
 # To apply the function ---------------------------------------------------
-years <- parse_number(basename(proj))
+years <- parse_number(basename(poly))
 map(years, clipfunc)
 
 # Intersect with 2021 - forest cover --------------------------------------
@@ -195,6 +194,7 @@ purrr::map(.x = 1:length(proj), .f = function(i){
     
     # Raster file
     terra::writeRaster(x = fr, filename = glue('{dr}/{do}'), overwrite = T)
+    terra::writeRaster(x = frbf, filename = glue('{dr}/bffr_{do}'), overwrite = T)
     
     # CSV file
     dr <- glue('tables/ideam/{year}')
@@ -205,5 +205,13 @@ purrr::map(.x = 1:length(proj), .f = function(i){
   })
   
 })
+
+
+
+
+
+
+
+
 
 
