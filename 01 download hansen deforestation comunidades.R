@@ -139,7 +139,12 @@ extractMask <- function(zne){
   
 }
 
+saveRDS(tbls, file = 'tbls.rds')
 tbls <- purrr::map(.x = 1:nrow(znes), .f = function(i) extractMask(zne = znes[i,]))
+
+base <- znes %>% st_drop_geometry() %>% distinct(Comunidad, bioma)
+tbls <- inner_join(tbls, base, by = 'Comunidad')
+
 tbls <- bind_rows(tbls)
 
 xlsx::write.xlsx(x = as.data.frame(tbls), file = 'results/tables/forest_noforest_allYears.xlsx', sheetName = 'Tables', row.names = FALSE, append = FALSE)
