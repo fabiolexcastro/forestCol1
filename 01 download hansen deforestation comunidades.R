@@ -61,7 +61,7 @@ proj <- '+proj=tmerc +lat_0=4.59620041666667 +lon_0=-74.0775079166667 +k=1 +x_0=
 extractMask <- function(zne){
   
   # Proof
-  # zne <- znes[1,]
+  # zne <- znes[41,]
   
   # Starting
   cat('Processing, start: ', unique(zne$Comunidad), '\n')
@@ -82,9 +82,12 @@ extractMask <- function(zne){
   are <- sum(pull(freq(msk), count)) * res
   
   # Forest 2000
+  lss <- tibble(value = c(0, 1), type = c('No bosque', 'Bosque'))
+  
   frq.frs <- freq(rst[[1]])
   frq.frs <- as_tibble(frq.frs)
-  frq.frs <- mutate(frq.frs, type = c('No bosque', 'Bosque'), has_bosque_2000 = count * res, nombre = nme)
+  frq.frs <- inner_join(frq.frs, lss, by = 'value')
+  frq.frs <- mutate(frq.frs, has_bosque_2000 = count * res, nombre = nme)
   frq.frs <- dplyr::select(frq.frs, nombre, type, has_bosque_2000)
   
   # Loss
