@@ -61,7 +61,7 @@ proj <- '+proj=tmerc +lat_0=4.59620041666667 +lon_0=-74.0775079166667 +k=1 +x_0=
 extractMask <- function(zne){
   
   # Proof
-  # zne <- znes[41,]
+  # zne <- znes[62,]
   
   # Starting
   cat('Processing, start: ', unique(zne$Comunidad), '\n')
@@ -101,8 +101,22 @@ extractMask <- function(zne){
   frq.lss <- mutate(frq.lss, has_perdida_cum = cumsum(has_perdida))
   
   # To get forest / no forest (all the period)
-  frs.00 <- frq.frs %>% filter(type == 'Bosque') %>% pull(3)
-  nfr.00 <- frq.frs %>% filter(type == 'No bosque') %>% pull(3)
+  frs.00 <- frq.frs %>% filter(type == 'Bosque') 
+  nfr.00 <- frq.frs %>% filter(type == 'No bosque')
+  
+  if(nrow(frs.00) == 0){
+    frs.00 <- 0
+  } else {
+    frs.00 <- frs.00 %>% pull(3)
+  }
+  
+  if(nrow(nfr.00) == 0){
+    nfr.00 <- 0
+  } else {
+    nfr.00 <- nfr.00 %>% pull(3)
+  }
+  
+  
   frq.lss <- mutate(frq.lss, has_bosque = frs.00 - has_perdida_cum)
   colnames(frq.lss) <- c('nombre', 'year', 'has_perdida', 'has_perdida_cum', 'has_bosque')
   frq.lss <- mutate(frq.lss, has_no_bosque = has_perdida_cum + nfr.00)
