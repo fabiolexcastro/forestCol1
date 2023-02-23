@@ -8,32 +8,13 @@ rm(list = ls())
 options(scipen = 999, warn = -1)
 
 # Load data ---------------------------------------------------------------
-
-# Comunidades 
-fles <- dir_ls('data/shp/Comunidades2/Comunidades', regexp = '.shp$')
-fles <- grep('nonproj', fles, value = T) %>% as.character()
-znes <- map(fles, vect)
-
-# Afro
-afro <- znes[[1]][,c('Comunidad', 'Bioma')] 
-afro$PUEBLO <- afro$Comunidad
-afro$tipo <- 'Afro'
-
-# Indigenas
-indi <- znes[[2]][,c('Comunidad', 'Bioma', 'PUEBLO')]
-indi$tipo <- 'Indigenas'
-
-# Join 
-znes <- rbind(afro, indi)
-writeVector(znes, 'data/gpk/zones_afro_indi.gpkg')
+znes <- vect('data/shp/projects/projects.shp')
 
 # Download gfcanalysis ----------------------------------------------------
 
-# No run ------------------------------------------------------------------
-
 # Check the tiles
 tles <- calc_gfc_tiles(st_as_sf(znes))
-dout <- 'data/tif/raw_comunidade_hansen_2021'
+dout <- 'data/tif/raw_comunidade_2021'
 
 download_tiles(tles, dout, dataset = 'GFC-2021-v1.9')
 
@@ -48,12 +29,12 @@ extr <- rast(extr)
 thrs <- rast(thrs)
 
 # To write the results
-terra::writeRaster(thrs, 'data/tif/hanse_thrs_com_2021.tif', overwrite = TRUE)
-terra::writeRaster(extr, 'data/tif/hanse_extr_com_2021.tif', overwrite = TRUE)
+terra::writeRaster(thrs, 'data/tif/hanse_thrs_2021.tif', overwrite = TRUE)
+terra::writeRaster(extr, 'data/tif/hanse_extr_2021.tif', overwrite = TRUE)
 
 # Read the results --------------------------------------------------------
-thrs <- terra::rast('data/tif/hanse_thrs_com_2021.tif')
-extr <- terra::rast('data/tif/hanse_extr_com_2021.tif')
+thrs <- terra::rast('data/tif/hanse_thrs_2021.tif')
+extr <- terra::rast('data/tif/hanse_extr_2021.tif')
 dir_ls('data/tif')
 proj <- '+proj=tmerc +lat_0=4.59620041666667 +lon_0=-74.0775079166667 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
 
@@ -61,11 +42,12 @@ proj <- '+proj=tmerc +lat_0=4.59620041666667 +lon_0=-74.0775079166667 +k=1 +x_0=
 extractMask <- function(zne){
   
   # Proof
-  # zne <- znes[1,]
+  # zne <- znes[23,]
   
   # Starting
-  cat('Processing, start: ', unique(zne$Comunidad), '\n')
-  nme <- zne$Comunidad
+  cat('Processing, start: ', unique(zne$MERGE_SRC), '\n')
+  nme <- zne$MERGE_SRC
+  str <- zne$Inicio
   bio <- zne$Bioma
   
   cat('To extract by mask ----\t')
@@ -109,7 +91,7 @@ extractMask <- function(zne){
     cat('No missing rows!\n')
     frq.lss
   }
-  
+
   frq.lss <- mutate(frq.lss, has_perdida_cum = cumsum(has_perdida))
   
   # To get forest / no forest (all the period)
@@ -132,9 +114,12 @@ extractMask <- function(zne){
   colnames(frq.lss) <- c('nombre', 'year', 'has_perdida', 'has_perdida_cum', 'has_bosque')
   frq.lss <- mutate(frq.lss, has_no_bosque = has_perdida_cum + nfr.00)
   frq.lss <- rbind(c(nme, 'x2000', NA, NA, frs.00, nfr.00), frq.lss) %>% retype()
+  
+  frq.lss <- mutate(frq.lss, startProject = str)
+  frq.lss <- relocate(frq.lss, startProject, .before = year)
   frq.lss <- mutate(frq.lss, has_projectTotal = are)
   frq.lss <- mutate(frq.lss, bioma = bio)
-  frq.lss <- relocate(frq.lss, nombre, has_projectTotal, bioma, year)
+  frq.lss <- relocate(frq.lss, nombre, bioma, has_projectTotal, startProject, year, has_perdida:has_no_bosque)
   
   # Gain forest
   gai <- tibble(value = c(0, 1), class_gain = c('No gain', 'Gain'))
@@ -142,24 +127,41 @@ extractMask <- function(zne){
   frq.gai <- inner_join(frq.gai, gai, by = 'value')
   frq.gai <- dplyr::select(frq.gai, class_gain, count)
   frq.gai <- mutate(frq.gai, has_class_gain = count * res)
+  frq.gai <- mutate(frq.gai, project = nme)
+  frq.gai <- dplyr::select(frq.gai, project, class_gain, has_class_gain)
+  frq.gai <- spread(frq.gai, class_gain, has_class_gain)
+  frq.gai <- dplyr::select(frq.gai, project, Gain)
   
   # Finish
-  Sys.sleep(3)
+  Sys.sleep(1)
   cat('Done!\n')
   return(list(frq.lss, frq.gai))
   
 }
 
+tbls <- purrr::map(.x = 1:nrow(znes), .f = function(i) extractMask(zne = znes[i,]))
+saveRDS(tbls, file = 'tbls_hansenprojects.rds')
+tbls <- readRDS(file = 'tbls_hansenprojects.rds')
+
+# Loss
+tbls.loss <- map_dfr(tbls, 1)
+
+# Gain 
+prjc <- tbls.loss %>% pull(nombre) %>% unique()
+tbls.gain <- map(tbls, 2)
+tbls.gain <- map(1:length(tbls.gain), function(i){mutate(tbls.gain[[i]], project = prjc[i])})
+tbls.gain <- bind_rows(tbls.gain)
+tbls.gain <- relocate(tbls.gain, project, class_gain, count, has_class_gain)
+tbls.gain <- dplyr::select(tbls.gain, -count)
+tbls.gain <- spread(tbls.gain, class_gain, has_class_gain)
+tbls.gain <- dplyr::select(tbls.gain, project, Gain)
+
 
 tbls <- purrr::map(.x = 1:nrow(znes), .f = function(i) extractMask(zne = znes[i,]))
-saveRDS(tbls, file = 'tbls_comunidades.rds')
-
-# Fin ---------------------------------------------------------------------
-base <- znes %>% st_drop_geometry() %>% distinct(Comunidad, bioma)
-tbls <- inner_join(tbls, base, by = 'Comunidad')
-
 tbls <- bind_rows(tbls)
 
+
 xlsx::write.xlsx(x = as.data.frame(tbls), file = 'results/tables/forest_noforest_allYears.xlsx', sheetName = 'Tables', row.names = FALSE, append = FALSE)
+
 
 
