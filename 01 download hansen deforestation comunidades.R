@@ -70,6 +70,7 @@ extractMask <- function(zne){
   cat('Processing, start: ', unique(zne$Comunidad), '\n')
   nme <- zne$Comunidad
   bio <- zne$Bioma
+  typ <- zne$Type
   
   cat('To extract by mask ----\t')
   rst <- terra::crop(thrs, zne)
@@ -102,7 +103,7 @@ extractMask <- function(zne){
   frq.lss <- dplyr::select(frq.lss, nombre, year, has_perdida)
   frq.lss <- mutate(frq.lss, year = paste0('x', year))
   
-  frq.lss <- mutate(frq.lss, Comunidad = nme, Bioma = bio)
+  frq.lss <- mutate(frq.lss, Comunidad = nme, Bioma = bio Typo = typ)
   
   if(nrow(frq.lss) != 21){
     cat('Missing rows!\n')
