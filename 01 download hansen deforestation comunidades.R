@@ -102,6 +102,8 @@ extractMask <- function(zne){
   frq.lss <- dplyr::select(frq.lss, nombre, year, has_perdida)
   frq.lss <- mutate(frq.lss, year = paste0('x', year))
   
+  frq.lss <- mutate(frq.lss, Comunidad = nme, Bioma = bio)
+  
   if(nrow(frq.lss) != 21){
     cat('Missing rows!\n')
     base <- tibble(nombre = nme, year = paste0('x', 2001:2021))
