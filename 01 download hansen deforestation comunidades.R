@@ -27,6 +27,9 @@ indi$tipo <- 'Indigenas'
 znes <- rbind(afro, indi)
 writeVector(znes, 'data/gpk/zones_afro_indi.gpkg')
 
+# Run from here -----------------------------------------------------------
+znes <- vect('data/gpk/zones_afro_indi_v2.gpkg')
+
 # Download gfcanalysis ----------------------------------------------------
 
 # No run ------------------------------------------------------------------
@@ -150,16 +153,54 @@ extractMask <- function(zne){
   
 }
 
-
 tbls <- purrr::map(.x = 1:nrow(znes), .f = function(i) extractMask(zne = znes[i,]))
 saveRDS(tbls, file = 'tbls_comunidades.rds')
+tbls <- readRDS(file = 'tbls_comunidades.rds')
+name <- znes$Comunidad
+type <- znes$tipo
 
-# Fin ---------------------------------------------------------------------
-base <- znes %>% st_drop_geometry() %>% distinct(Comunidad, bioma)
-tbls <- inner_join(tbls, base, by = 'Comunidad')
+# Loss
+tbls.loss <- map(tbls, 1)
+tbls.loss <- bind_rows(tbls.loss)
 
-tbls <- bind_rows(tbls)
+# Gain 
+tbls.gain <- map(tbls, 2)
+tbls.gain <- map(1:length(tbls.gain), function(i){
+  tbls.gain[[i]] %>% mutate(project = name[i], type = type[i]) %>% dplyr::select(project, type, -count, class_gain, has_class_gain)
+})
+tbls.gain <- bind_rows(tbls.gain)
+tbls.gain <- as_tibble(tbls.gain)
 
-xlsx::write.xlsx(x = as.data.frame(tbls), file = 'results/tables/forest_noforest_allYears.xlsx', sheetName = 'Tables', row.names = FALSE, append = FALSE)
+write.csv(tbls.loss, 'data/tbl/loss_comunidades_v1.csv', row.names = FALSE)
+write.csv(tbls.gain, 'data/tbl/gain_comunidades_v1.csv', row.names = FALSE)
+
+# Add the gain to the loss gain -------------------------------------------
+name
+
+rslt <- purrr::map(.x = 1:length(name), .f = function(i){
+  
+  cat('... Processing:', name[i], '\n')
+  gain <- tbls.gain %>% filter(project == name[i])
+  loss <- tbls.loss %>% filter(nombre == name[i])
+  limt <- znes[znes$Comunidad == name[i],]
+  
+  if(nrow(limt) > 1){
+    print('Has more than one polygon')
+    r <- nrow(limt)
+  } else {
+    print('Has just one polygon')
+    r <- nrow(limt)
+  }
+  
+  return(r)
+  
+})
+
+rslt <- unlist(rslt)
+table(rslt)
+248+18
+
+
+
 
 
