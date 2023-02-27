@@ -70,7 +70,6 @@ extractMask <- function(zne){
   cat('Processing, start: ', unique(zne$Comunidad), '\n')
   nme <- zne$Comunidad
   bio <- zne$Bioma
-  typ <- zne$Type
   
   cat('To extract by mask ----\t')
   rst <- terra::crop(thrs, zne)
@@ -102,8 +101,6 @@ extractMask <- function(zne){
   frq.lss <- mutate(frq.lss, has_perdida = count * res, nombre = nme)
   frq.lss <- dplyr::select(frq.lss, nombre, year, has_perdida)
   frq.lss <- mutate(frq.lss, year = paste0('x', year))
-  
-  frq.lss <- mutate(frq.lss, Comunidad = nme, Bioma = bio Typo = typ)
   
   if(nrow(frq.lss) != 21){
     cat('Missing rows!\n')
@@ -158,6 +155,8 @@ extractMask <- function(zne){
 
 tbls <- purrr::map(.x = 1:nrow(znes), .f = function(i) extractMask(zne = znes[i,]))
 saveRDS(tbls, file = 'tbls_comunidades.rds')
+
+
 tbls <- readRDS(file = 'tbls_comunidades.rds')
 name <- znes$Comunidad
 type <- znes$tipo
@@ -177,33 +176,46 @@ tbls.gain <- as_tibble(tbls.gain)
 write.csv(tbls.loss, 'data/tbl/loss_comunidades_v1.csv', row.names = FALSE)
 write.csv(tbls.gain, 'data/tbl/gain_comunidades_v1.csv', row.names = FALSE)
 
+tbls.loss <- read_csv('data/tbl/loss_comunidades_v1.csv')
+tbls.gain <- read_csv('data/tbl/gain_comunidades_v1.csv')
+
+znes <- vect('data/gpk/zones_afro_indi_v2.gpkg')
+lbls <- znes %>% as.data.frame %>% as_tibble()
+
 # Add the gain to the loss gain -------------------------------------------
-name
+name <- unique(tbls.loss$nombre)
 
 rslt <- purrr::map(.x = 1:length(name), .f = function(i){
   
   cat('... Processing:', name[i], '\n')
-  gain <- tbls.gain %>% filter(project == name[i])
+  gain <- tbls.gain %>% filter(project == name[i]) %>% distinct()
   loss <- tbls.loss %>% filter(nombre == name[i])
-  limt <- znes[znes$Comunidad == name[i],]
+  biom <- znes[znes$Comunidad == name[i],]
+  biom <- biom$Bioma
+  loss <- filter(loss, bioma == biom)
   
-  if(nrow(limt) > 1){
-    print('Has more than one polygon')
-    r <- nrow(limt)
+  gain.gain <- filter(gain, class_gain == 'Gain')
+  
+  if(nrow(gain.gain) > 0){
+    
+    print('There was gain\n')
+    loss[nrow(loss),'has_bosque'] <- loss[nrow(loss),'has_bosque'] + gain.gain$has_class_gain
+    
   } else {
-    print('Has just one polygon')
-    r <- nrow(limt)
+    
+    print('There wasnt gain\n')
+    
+    loss
+    
   }
   
-  return(r)
+  return(loss)
   
 })
 
-rslt <- unlist(rslt)
-table(rslt)
-248+18
+rslt <- bind_rows(rslt)
 
-
+write.csv(rslt, 'data/tbl/loss_comunidades_v2.csv', row.names = FALSE)
 
 
 
