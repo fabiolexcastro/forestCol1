@@ -66,3 +66,47 @@ prec <- terra::mask(prec, biom)
 tavg <- terra::crop(tavg, biom)
 tavg <- terra::mask(tavg, biom)
 
+dout <- 'raster/input/variables/climate'
+dir_create(dout)
+terra::writeRaster(x = prec, filename = glue('{dout}/prec_1km.tif'), overwrite = T)
+terra::writeRaster(x = tavg, filename = glue('{dout}/tavg_1km.tif'), overwrite = T)
+
+# To make the GWR ---------------------------------------------------------
+library(RSAGA)
+env <- rsaga.env(path = 'C:/saga-7.9.0_x64')
+
+file.srtm <- 'raster/input/variables/srtm/srtm_250_fill.tif'
+file.prec <- glue('{dout}/prec_1km.tif')
+file.tavg <- glue('{dout}/tavg_1km.tif')
+
+# Prec
+rsl <- rsaga.geoprocessor(
+  lib = 'statistics_regression',
+  module = 'GWR for Grid Downscaling',
+  param = list(PREDICTORS = file.srtm,
+               REGRESSION = 'raster/input/variables/climate/prec_250m.tif',
+               DEPENDENT = file.prec),
+  env = env)
+
+prec_250 <- rast('raster/input/variables/climate/prec_250m.tif')
+
+# Tavg
+rsl <- rsaga.geoprocessor(
+  lib = 'statistics_regression',
+  module = 'GWR for Grid Downscaling',
+  param = list(PREDICTORS = file.srtm,
+               REGRESSION = 'raster/input/variables/climate/tavg_250m.tif',
+               DEPENDENT = file.tavg),
+  env = env)
+
+tavg_250 <- rast('raster/input/variables/climate/tavg_250m.tif')
+
+plot(tavg_250)
+
+
+c(srtm.fill, tavg_250, prec_250)
+
+
+
+
+
