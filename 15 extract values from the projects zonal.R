@@ -44,7 +44,6 @@ znal.cntn <- map_dfr(.x = 1:nlyr(stck), .f = function(i){
 
 znal.cntn <- znal.cntn %>% spread(vars, values_mean)
 
-
 # Discrete variables
 znal.dscr <- map_dfr(.x = 1:nlyr(dscr), .f = function(i){
   
@@ -58,10 +57,9 @@ znal.dscr <- map_dfr(.x = 1:nlyr(dscr), .f = function(i){
 
 znal.dscr <- znal.dscr %>% spread(vars, values_mean) 
 
-
-
-
-
+# Join both tables into only one ------------------------------------------
+znal.all <- inner_join(znal.cntn, znal.dscr, by = c('Bioma', 'Project'))
+write.csv(znal.all, 'tble/projects_valuesindicators.csv', row.names = FALSE)
 
 
 
