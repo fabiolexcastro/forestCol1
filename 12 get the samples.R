@@ -1,5 +1,5 @@
 
-# To adjust the model
+# To get the samples
 # Mar 15 2023
 
 # Loading libraries ----------------------------------------------------------
@@ -12,14 +12,13 @@ rm(list = ls())
 options(scipen = 999, warn = -1)
 
 # Load data ---------------------------------------------------------------
-znes <- terra::vect('shp/projects/projects.shp')
+znes <- terra::vect('gpkg/projects.gpkg')
 biom <- terra::vect('shp/biomes/biomes_geo.shp')
 stck <- terra::rast('raster/input/variables/stack_allvars.tif')
 
 # Check the zones plotting
 plot(biom, col = 'red')
 plot(znes, add = TRUE, border = 'green')
-
 
 # To make the sample ------------------------------------------------------
 biom <- biom[-1,]
@@ -28,6 +27,15 @@ rslt <- purrr::map(.x = 1:length(biom), .f = function(i){
   
   bio <- biom[i,]
   nme <- bio$DeCodigo
+  # nme <- 'Orinoco'
+  
+  if(nme == 'Orinoc'){ 
+    print('Orinoco')
+    nme <- 'Orinoco'
+  } else if(nme == 'Pacifi'){
+    print('Pacifico')
+    nme <- 'Pacific'
+  }
   
   cat('... Processing: ', nme, '\n')
   
@@ -46,9 +54,9 @@ rslt <- purrr::map(.x = 1:length(biom), .f = function(i){
   frs <- stk[[pos.frs]]
   lcv <- stk[[pos.lcv]]
   
-  map(.x = 2:nrow(zns), .f = function(j){
+  map(.x = 1:nrow(zns), .f = function(j){
     
-    zne <- zns$MERGE_SRC[j]
+    zne <- zns$names[j]
     bse <- stk[[1]] * 0 + 1
     bsq <- frs
     lcv <- lcv
@@ -57,9 +65,7 @@ rslt <- purrr::map(.x = 1:length(biom), .f = function(i){
     
   })
   
-
-  
-  
+  cat('Finish everything!!!\n')
   
 })
 
@@ -74,6 +80,9 @@ get_sample <- function(zne, bse, bsq, cvr){
   
   # Start
   shp <- zns[zns$MERGE_SRC == zne,]
+  
+  # Cut with the biom
+  # shp <- terra::crop(shp, bio)
   
   # Get the mask for the project
   prs <- terra::crop(bse, shp)
@@ -94,6 +103,8 @@ get_sample <- function(zne, bse, bsq, cvr){
   # Join presences and pseudo-absences 
   all <- rbind(pnt, bck)
   all <- mutate(all, project = gsub('Projects\\\\', '', project))
+  # all <- mutate(all, project = gsub('El Tigre\\\\', '', project))
+  
   write.csv(all, glue('tble/samples/v1/presences_{shp$Bioma}_{unique(all$project)}.csv'), row.names = FALSE)
   
   # Get the year of the project start
@@ -152,7 +163,7 @@ get_sample <- function(zne, bse, bsq, cvr){
   
   # To write the table and the raster for spatial projection
   write.csv(swd, glue('tble/samples/v1/swd_{shp$Bioma}_{unique(all$project)}.csv'), row.names = FALSE)
-  terra::writeRaster(x = sub.1, filename = glue('raster/input/stacks/run_1/rst_{shp$Bioma}_{unique(all$project)}.tif'))
+  terra::writeRaster(x = sub.1, filename = glue('raster/input/stacks/run_1/rst_{shp$Bioma}_{unique(all$project)}.tif'), overwrite = TRUE)
   cat('Finish!!!!!!!!!!!\n')
   
 }

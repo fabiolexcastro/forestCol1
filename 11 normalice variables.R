@@ -1,6 +1,6 @@
 
 
-# Get sample from the projects
+# Normalice variables
 # Mar 13 2023
 
 # Loading libraries ----------------------------------------------------------
@@ -13,14 +13,7 @@ rm(list = ls())
 options(scipen = 999, warn = -1)
 
 # Load data ---------------------------------------------------------------
-znes <- terra::vect('shp/projects/projects.shp')
-
-# Get a identifier for each project ---------------------------------------
-lbls <- znes %>% as.data.frame %>% as_tibble %>% dplyr::select(MERGE_SRC)
-lbls <- mutate(lbls, name = gsub('Projects\\\\', '', MERGE_SRC))
-lbls <- mutate(lbls, ID = paste0('P_', 1:nrow(lbls)))
-
-znes <- vect(inner_join(st_as_sf(znes), lbls, by = 'MERGE_SRC'))
+znes <- terra::vect('gpkg/projects.gpkg')
 
 # Read the variables ------------------------------------------------------
 minr <- terra::rast('raster/input/variables/mineria/dist_mineria_proj.tif')
@@ -31,7 +24,8 @@ frst <- terra::rast('raster/input/variables/forest/hansen_250m_Colombia_frsnofrs
 lcvr <- dir_ls('raster/input/variables/landcover/250/yearly') %>% grep('.tif$', ., value = T) %>% as.character() %>% terra::rast()
 prec <- terra::rast('raster/input/variables/climate/prec_250m.tif')
 tavg <- terra::rast('raster/input/variables/climate/tavg_250m.tif')
-srtm <- terra::rast('raster/input/variables/srtm/srtm_250_fill.tif')\
+srtm <- terra::rast('raster/input/variables/srtm/srtm_250_fill.tif')
+slpe <- terra::rast('raster/input/variables/srtm/slope_250_fill.tif')
 
 geog <- '+proj=longlat +datum=WGS84 +no_defs +type=crs'
 mask <- terra::rast('raster/input/mask/mask_250m.tif')
@@ -40,7 +34,7 @@ base <- mask
 
 # Check the coordinate system ---------------------------------------------
 
-list <- list(minr, coca, palm, accs, frst, lcvr, prec, tavg, srtm)
+list <- list(minr, coca, palm, accs, frst, lcvr, prec, tavg, srtm, slpe)
 crds <- map(list, crs)
 table(crds)
 crds
@@ -77,7 +71,7 @@ fnal <- do.call('c', fnal)
 names(fnal)[1:3] <- c('mineria', 'coca', 'palma')
 names(fnal)[27:46] <- glue('lcv_{2001:2020}')
 
-terra::writeRaster(x = fnal, filename = 'raster/input/variables/stack_allvars.tif')
+terra::writeRaster(x = fnal, filename = 'raster/input/variables/stack_allvars2.tif')
 
 # Check the EPSG ------------------------------------------
 r <- rast()
