@@ -33,11 +33,10 @@ rf.clust <- function(occ, nforest, ntrees, nVars, nclasses){
   
 }
 
-
 # Load data ---------------------------------------------------------------
-znes <- terra::vect('shp/projects/projects.shp')
+znes <- terra::vect('gpkg/projects_3.gpkg')
 biom <- terra::vect('shp/biomes/biomes_geo.shp')
-stck <- terra::rast('raster/input/variables/stack_allvars.tif')
+stck <- terra::rast('raster/input/variables/stack_allvars2.tif')
 
 # Remove Caribean Biom
 biom <- biom[-1,]
@@ -47,27 +46,25 @@ fles <- dir_ls('tble/samples/v1', regexp = '.csv') %>%
   grep('swd', ., value = T) %>% 
   as.character()
 
-# Equivalencia ------------------------------------------------------------
-equi <- read_csv('equivalencia.csv')
+znes$names <- tolower(znes$names)
 
 # To create a function  ---------------------------------------------------
-fle <- fles[9]
+fle <- fles[31]
 
 makeclusterRF <- function(fle){
   
   cat(green('... Processing: ', basename(fle), '\t'))
   tble <- suppressMessages(read_csv(fle))
+  View(tble)
   tble <- drop_na(tble)
   binm <- map_chr(str_split(basename(fle), pattern = '_'), 2)
   name <- gsub('.csv', '', map_chr(str_split(basename(fle), pattern = '_'), 3))
-  name <- filter(equi, name_file == name) %>% pull(2)
-  name <- gsub('\\\\\\\\', '\\\\', name)
+  name <- tolower(name)
   
   cat(green('Processing: ', name, 'in the biom ', binm, '\n'))
   
   cat(green('Get the mask\n'))
-  # zone <- znes[znes$MERGE_SRC == glue('Projects\\{name}'fle),]
-  zone <- znes[znes$MERGE_SRC == name,]
+  zone <- znes[znes$names == name,]
   mask <- terra::mask(terra::crop(stck[[1]], zone), zone) * 0 + 1
   
   cat(yellow('Bioma: ', binm, '\t'))
@@ -102,25 +99,44 @@ makeclusterRF <- function(fle){
   no.clusters <- 5
   
   run <- 'run_1'
-  name <- gsub('Projects\\\\', '', name)
-  # name <- name[2]
   dout <- glue('rData/rf_v1/{name}_{binm}/{run}')
-  # dout <- 'rData/rf_v1/P_Zabalo_Amazon/run_1'
   dir_create(dout)
   
   save(datRF, file = paste0(dout, '/datRF.rData'))
   save(clusterdata, file = paste0(dout, '/clusterdata.rData'))
   save(occr, clusteredpresdata, no.clusters, labelRF, file = paste0(dout, '/clustereddata.rData'))
-  
+  save(occr, file = paste0(dout, '/occr.rData'))
+  save(back, file = paste0(dout, '/back.rData'))
   cat(green('---------------- Finish!\n'))
   
 }
 
-map(fles[12:length(fles)], makeclusterRF)
-fle <- fles[8]
+map(fles[32:length(fles)], makeclusterRF)
 
 rslt <- dir_ls('rData/rf_v1') %>% 
   as.character()
+
+# Cocoman 
+coco <- grep('Cocoman', fles, value = T) %>% read_csv() %>% filter(pb == 1)
+unique(coco$pb)
+plot(biom)
+points(coco$x, coco$y, pch = 16, col = 'red')
+znes
+coco_zone <- znes[znes$names == 'cocoman',]
+plot(coco_zone, add = T, col = 'red')
+
+# Intersection 
+coco_zone <- terra::intersect(coco_zone, biom)
+coco_zone$names <- paste0(coco_zone$names, '-', coco_zone$DeCodigo)
+znes
+coco_zone <- coco_zone[,c('Inicio', 'Area_Ha', 'Bioma', 'names')]
+coco_zone_andn <- coco_zone[coco_zone$names == 'cocoman-Andean']
+coco_zone_pacf <- coco_zone[coco_zone$names == 'cocoman-Pacifi',]
+
+znes_new <- rbind(znes[znes$names != 'cocoman',], coco_zone_andn, coco_zone_pacf)
+sort(znes_new$names)
+writeVector(znes_new, 'gpkg/projects_2.gpkg')
+
 
 
 
